@@ -6,7 +6,9 @@
  
 const char iwdSignalName[] = "net.connman.iwd.Station";
 const char iwdStateName[] = "State";
-const char iwdStateTrans[] = "connected";
+const char iwdStateTransUp[] = "connected";
+const char iwdStateTransDown[] = "disconnected";
+const char *iwd_down_script_path;
 const char *iwd_up_script_path;
 
 
@@ -58,9 +60,15 @@ DBusHandlerResult signal_filter(DBusConnection *connection, DBusMessage *msg, vo
                 return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
             }
             dbus_message_iter_get_basic(&variantIter, &value);
-            if (strncmp(iwdStateTrans, value, strlen(iwdStateTrans)) == 0) {
+            if (strncmp(iwdStateTransUp, value, strlen(iwdStateTransUp)) == 0) {
                 g_message("Net up running %s", iwd_up_script_path);
                 system(iwd_up_script_path);
+            } else if (strncmp(iwdStateTransDown, value, strlen(iwdStateTransDown)) == 0) {
+                g_message("Net down running %s", iwd_down_script_path);
+                system(iwd_down_script_path);
+            } else {
+                g_message("Expected string variant %s", value);
+                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
             }
             return DBUS_HANDLER_RESULT_HANDLED;
         }
@@ -75,14 +83,14 @@ int main(int argc, const char *argv[]) {
     DBusError error;
     struct stat script_stat;
 
-    if (argc != 2 || *argv[1] == '\0' || *argv[1] != '/') {
-        g_error("Usage %s absolue_path_non_link_for_script", argv[0]);
+    if (argc != 3 || *argv[1] != '/' || *argv[2] != '/') {
+        g_error("Usage %s absolue_path_non_link_for_script_up absolue_path_non_link_for_script_down", argv[0]);
         return EXIT_FAILURE;
     }
     
     iwd_up_script_path = argv[1];
     if (stat(iwd_up_script_path, &script_stat) != 0) {
-        g_error("Stat says your script file %s %s", iwd_up_script_path, strerror(errno));
+        g_error("Stat says your up script file %s %s", iwd_up_script_path, strerror(errno));
         return EXIT_FAILURE;
     }
 
@@ -94,6 +102,23 @@ int main(int argc, const char *argv[]) {
                   script_stat.st_mode & S_IXGRP ||
                   script_stat.st_mode & S_IXOTH)) {
         g_error("File %s is not an executable readable file for at least someone", iwd_up_script_path);
+        return EXIT_FAILURE;
+    }
+    
+    iwd_down_script_path = argv[1];
+    if (stat(iwd_down_script_path, &script_stat) != 0) {
+        g_error("Stat says your down script file %s %s", iwd_down_script_path, strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+    if (!S_ISREG(script_stat.st_mode) ||
+                !(script_stat.st_mode & S_IRUSR ||
+                  script_stat.st_mode & S_IRGRP ||
+                  script_stat.st_mode & S_IROTH) ||
+                !(script_stat.st_mode & S_IXUSR ||
+                  script_stat.st_mode & S_IXGRP ||
+                  script_stat.st_mode & S_IXOTH)) {
+        g_error("File %s is not an executable readable file for at least someone", iwd_down_script_path);
         return EXIT_FAILURE;
     }
     
