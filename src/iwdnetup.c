@@ -1,13 +1,14 @@
+#include <syslog.h>
 #include <sys/stat.h>
 #include <glib.h>
 #include <dbus/dbus.h>
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-lowlevel.h>
  
-const char iwdSignalName[] = "net.connman.iwd.Station";
-const char iwdStateName[] = "State";
-const char iwdStateTransUp[] = "connected";
-const char iwdStateTransDown[] = "disconnected";
+const char iwdBusName[] = "org.freedesktop.network1.Link";
+const char iwdStateName[] = "IPv4AddressState";
+const char iwdStateTransUp[] = "routable";
+const char iwdStateTransDown[] = "off";
 const char *iwd_down_script_path;
 const char *iwd_up_script_path;
 
@@ -21,62 +22,66 @@ DBusHandlerResult signal_filter(DBusConnection *connection, DBusMessage *msg, vo
 
         dbus_message_iter_init(msg, &iter);
         dbus_message_iter_get_basic(&iter, &name);
-        if (strncmp(iwdSignalName, name, strlen(iwdSignalName)) != 0)  {
-            g_message("Ignoring %s", name);
+        if (strncmp(iwdBusName, name, strlen(iwdBusName)) != 0)  {
+ //           g_message("Ignoring %s", name);
             return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
         }
         dbus_message_iter_next(&iter);
         if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
-            g_message("Ignoring not an array");
+//            g_message("Ignoring not an array");
             return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
         }
+
         dbus_message_iter_recurse(&iter, &arrayIter);
-        if (dbus_message_iter_get_arg_type(&arrayIter) != DBUS_TYPE_DICT_ENTRY) {
-            g_message("Ignoring not a dict");
-            return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-        }
-        dbus_message_iter_recurse(&arrayIter, &dictIter);
-        if (dbus_message_iter_get_arg_type(&dictIter) != DBUS_TYPE_STRING) {
-            g_message("Ignoring dict not string");
-            return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-        } else {
+        for (dbus_bool_t hasMore = TRUE; hasMore; hasMore = dbus_message_iter_next(&arrayIter)) {
+            dbus_message_iter_recurse(&arrayIter, &dictIter);
+           if (dbus_message_iter_get_arg_type(&arrayIter) != DBUS_TYPE_DICT_ENTRY) {
+//                g_message("Ignoring not a dict");
+                continue;
+            }
+
+            if (dbus_message_iter_get_arg_type(&dictIter) != DBUS_TYPE_STRING) {
+//                g_message("Ignoring dict not string");
+                continue;
+            } 
+
             DBusMessageIter variantIter;
-            char *action;
+            char *dictName;
             char *value;
             int variantType;
-            dbus_message_iter_get_basic(&dictIter, &action);
-            if (strncmp(iwdStateName, action, strlen(iwdStateName)) != 0) {
-                g_message("Not expecting string %s", action);
+
+            dbus_message_iter_get_basic(&dictIter, &dictName);
+            if (strncmp(iwdStateName, dictName, strlen(iwdStateName)) != 0) {
+//                g_message("Not expecting string %s", dictName);
+                continue;
             }
+
             dbus_message_iter_next(&dictIter) ;
             if (dbus_message_iter_get_arg_type(&dictIter) != DBUS_TYPE_VARIANT) {
-                g_message("Ignoring dict not {string bool}");
-                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+//                g_message("Ignoring dict s not variant}");
             }
             dbus_message_iter_recurse(&dictIter, &variantIter);
             variantType = dbus_message_iter_get_arg_type(&variantIter);
             if(variantType != DBUS_TYPE_STRING) {
-                g_message("Expected string variant");
-                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+//                g_message("Expected string variant");
             }
             dbus_message_iter_get_basic(&variantIter, &value);
             if (strncmp(iwdStateTransUp, value, strlen(iwdStateTransUp)) == 0) {
-                g_message("Net up running %s", iwd_up_script_path);
+                syslog(LOG_LOCAL0, "IWD interface is up");
                 system(iwd_up_script_path);
+                return DBUS_HANDLER_RESULT_HANDLED;
             } else if (strncmp(iwdStateTransDown, value, strlen(iwdStateTransDown)) == 0) {
-                g_message("Net down running %s", iwd_down_script_path);
+                syslog(LOG_LOCAL0, "IWD interface is down");
                 system(iwd_down_script_path);
+                return DBUS_HANDLER_RESULT_HANDLED;
             } else {
                 g_message("Expected string variant %s", value);
                 return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
             }
-            return DBUS_HANDLER_RESULT_HANDLED;
         }
-
     }
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
- 
  
 int main(int argc, const char *argv[]) {
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
@@ -142,10 +147,12 @@ int main(int argc, const char *argv[]) {
         return EXIT_FAILURE;
     }
  
-    g_message("Listening to D-BUS signals using a connection filter");
+    openlog("iwdnetup", LOG_PID|LOG_CONS, LOG_USER);
+    syslog(LOG_LOCAL0,"Listening to D-BUS signals for setting up routes on iwd managed interfaces");
     dbus_connection_add_filter(conn, signal_filter, NULL, NULL);
  
     g_main_loop_run(loop);
+    closelog();
  
     return EXIT_SUCCESS; 
 }
