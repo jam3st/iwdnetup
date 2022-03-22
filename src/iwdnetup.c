@@ -28,7 +28,7 @@ DBusHandlerResult signal_filter(DBusConnection *connection, DBusMessage *msg, vo
         }
         dbus_message_iter_next(&iter);
         if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
-//            g_message("Ignoring not an array");
+            g_message("Ignoring not an array");
             return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
         }
 
@@ -36,12 +36,12 @@ DBusHandlerResult signal_filter(DBusConnection *connection, DBusMessage *msg, vo
         for (dbus_bool_t hasMore = TRUE; hasMore; hasMore = dbus_message_iter_next(&arrayIter)) {
             dbus_message_iter_recurse(&arrayIter, &dictIter);
            if (dbus_message_iter_get_arg_type(&arrayIter) != DBUS_TYPE_DICT_ENTRY) {
-//                g_message("Ignoring not a dict");
+                g_message("Ignoring not a dict");
                 continue;
             }
 
             if (dbus_message_iter_get_arg_type(&dictIter) != DBUS_TYPE_STRING) {
-//                g_message("Ignoring dict not string");
+                g_message("Ignoring dict not string");
                 continue;
             } 
 
@@ -52,18 +52,18 @@ DBusHandlerResult signal_filter(DBusConnection *connection, DBusMessage *msg, vo
 
             dbus_message_iter_get_basic(&dictIter, &dictName);
             if (strncmp(iwdStateName, dictName, strlen(iwdStateName)) != 0) {
-//                g_message("Not expecting string %s", dictName);
+                g_message("Not expecting string %s", dictName);
                 continue;
             }
 
             dbus_message_iter_next(&dictIter) ;
             if (dbus_message_iter_get_arg_type(&dictIter) != DBUS_TYPE_VARIANT) {
-//                g_message("Ignoring dict is not variant}");
+                g_message("Ignoring dict is not variant}");
             }
             dbus_message_iter_recurse(&dictIter, &variantIter);
             variantType = dbus_message_iter_get_arg_type(&variantIter);
             if(variantType != DBUS_TYPE_STRING) {
-//                g_message("Expected string variant");
+                g_message("Expected string variant");
             }
             dbus_message_iter_get_basic(&variantIter, &value);
             if (strncmp(iwdStateTransUp, value, strlen(iwdStateTransUp)) == 0) {
