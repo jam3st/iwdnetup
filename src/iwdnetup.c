@@ -5,10 +5,10 @@
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-lowlevel.h>
  
-const char iwdBusName[] = "org.freedesktop.network1.Link";
-const char iwdStateName[] = "IPv4AddressState";
-const char iwdStateTransUp[] = "routable";
-const char iwdStateTransDown[] = "off";
+const char iwdBusName[] = "net.connman.iwd.Station";
+const char iwdStateName[] = "State";
+const char iwdStateTransUp[] = "connected";
+const char iwdStateTransDown[] = "disconnected";
 const char *iwd_down_script_path;
 const char *iwd_up_script_path;
 
@@ -23,7 +23,7 @@ DBusHandlerResult signal_filter(DBusConnection *connection, DBusMessage *msg, vo
         dbus_message_iter_init(msg, &iter);
         dbus_message_iter_get_basic(&iter, &name);
         if (strncmp(iwdBusName, name, strlen(iwdBusName)) != 0)  {
- //           g_message("Ignoring %s", name);
+            g_message("Ignoring %s", name);
             return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
         }
         dbus_message_iter_next(&iter);
@@ -58,7 +58,7 @@ DBusHandlerResult signal_filter(DBusConnection *connection, DBusMessage *msg, vo
 
             dbus_message_iter_next(&dictIter) ;
             if (dbus_message_iter_get_arg_type(&dictIter) != DBUS_TYPE_VARIANT) {
-//                g_message("Ignoring dict s not variant}");
+//                g_message("Ignoring dict is not variant}");
             }
             dbus_message_iter_recurse(&dictIter, &variantIter);
             variantType = dbus_message_iter_get_arg_type(&variantIter);
@@ -145,7 +145,7 @@ int main(int argc, const char *argv[]) {
     }
  
     openlog("iwdnetup", LOG_PID|LOG_CONS, LOG_USER);
-    syslog(LOG_LOCAL0,"Listening to D-BUS signals for setting up routes on iwd managed interfaces");
+    syslog(LOG_LOCAL1,"Listening to D-BUS signals for setting up routes on iwd managed interfaces");
     dbus_connection_add_filter(conn, signal_filter, NULL, NULL);
  
     g_main_loop_run(loop);
