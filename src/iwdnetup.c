@@ -69,14 +69,11 @@ DBusHandlerResult signal_filter(DBusConnection *connection, DBusMessage *msg, vo
             if (strncmp(iwdStateTransUp, value, strlen(iwdStateTransUp)) == 0) {
                 syslog(LOG_LOCAL0, "IWD interface is up");
                 system(iwd_up_script_path);
-                return DBUS_HANDLER_RESULT_HANDLED;
             } else if (strncmp(iwdStateTransDown, value, strlen(iwdStateTransDown)) == 0) {
                 syslog(LOG_LOCAL0, "IWD interface is down");
                 system(iwd_down_script_path);
-                return DBUS_HANDLER_RESULT_HANDLED;
             } else {
                 g_message("Expected string variant %s", value);
-                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
             }
         }
     }
